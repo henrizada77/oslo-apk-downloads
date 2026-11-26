@@ -1,0 +1,35 @@
+name: Publish Square Theme APK
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-square-theme.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct and verify the signed APK
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          base = b''.join(p.read_bytes() for p in sorted(Path('parts').glob('catalogo-*.part')))
+          assert hashlib.sha256(base).hexdigest() == 'cb2b66b8c3f775f721fbf395bd054cdcd6aeaa163750150032d8160765dc7d07'
+          root = Path('square-theme')
+          changed = b''.join(p.read_bytes() for p in sorted(root.glob('literal-*.part')))
+          inputs = {'original': base, 'literal': changed}
+          with open('oslo-music-tema-square.apk', 'wb') as dst:
+              for source, offset, size in json.loads((root / 'plan.json').read_text()):
+                  dst.write(inputs[source][offset:offset+size])
+          PY
+          echo "a4a1acdbfabec14914b83aaf44ec6f5b4f45d64cacc07ba58c2cd1b92888f8a9  oslo-music-tema-square.apk" | sha256sum -c
+      - name: Publish the verified file
+        run: |
+          gh release upload music-tema-square oslo-music-tema-square.apk --clobber
+          gh release edit music-tema-square --draft=false
