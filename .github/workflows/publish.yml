@@ -1,0 +1,26 @@
+name: Publish Oslo APK
+on:
+  push:
+    paths:
+      - '.github/workflows/publish.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble and publish verified APK
+        run: |
+          set -euo pipefail
+          apk=oslo-music-catalogo.apk
+          tag=music-catalogo-2026-11-26
+          cat parts/catalogo-*.part > "$apk"
+          echo "CB2B66B8C3F775F721FBF395BD054CDCD6AEAA163750150032D8160765DC7D07  $apk" | sha256sum -c
+          if ! gh release view "$tag"; then
+            gh release create "$tag" --draft --prerelease --title "Oslo Music — downloads do catálogo" --notes "APK de teste para Android."
+          fi
+          gh release upload "$tag" "$apk" --clobber
+          gh release edit "$tag" --draft=false
